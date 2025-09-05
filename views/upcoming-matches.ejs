@@ -183,7 +183,9 @@
         <% } %>
       <% } %>
 
-      document.getElementById("matchesPredicted").innerHTML = matchesPredicted
+      if (document.getElementById("matchesPredicted").innerHTML) {
+        document.getElementById("matchesPredicted").innerHTML = matchesPredicted
+      }
 
       /* Timers */
       function setTimer(diff) {

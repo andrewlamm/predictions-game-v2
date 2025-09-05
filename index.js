@@ -192,7 +192,6 @@ async function loadDatabases() {
   return new Promise(async function (resolve, reject) {
     await db.find().forEach(async function (doc) {
       for (const [key, val] of Object.entries(doc)) {
-        console.log(key, val)
         if (!isNaN(key)) { // if key is a number, then this is a valid match id
           all_matches[key].numPredictions += 1
           all_matches[key].sumPredictions += val
