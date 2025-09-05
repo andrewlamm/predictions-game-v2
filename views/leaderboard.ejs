@@ -3,7 +3,7 @@
   <%- include('partials/helmet.ejs', {title: 'leaderboard'}) %>
   <body>
     <div class="w-full min-h-screen flex flex-col justify-center items-center py-16">
-      <div class="w-full lg:w-4/5 flex-col justify-center items-center px-4">
+      <div class="w-full lg:w-5/6 flex-col justify-center items-center px-4">
         <%- include('partials/header.ejs', {title: 'leaderboard', user: user}) %>
         <div class="w-full divContainer overflow-x-auto">
           <table class="lessTableSpace w-full">
@@ -31,7 +31,7 @@
     let orderCount = { points: 0, correct: 0, change: 0, name: 0 }
     let currOrder = 'points'
 
-    function changeTableOrder(order) {    
+    function changeTableOrder(order) {
       if (order === 'place') {
         orderCount[currOrder] += 1
       }
@@ -41,21 +41,21 @@
         currOrder = order
       }
       order = currOrder
-      
+
       if (orderCount[order] % 2 === 0) {
         leaderboard.reverse()
       }
       else {
         leaderboard.sort((a, b) => {
           if (order === 'points') {
-            return b.score - a.score || b.correct - a.correct || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || a.username - b.username  
+            return b.score - a.score || b.correct - a.correct || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || a.username - b.username
           }
           else if (order === 'correct') {
-            return b.correct - a.correct || b.score - a.score || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || a.username - b.username  
-          } 
+            return b.correct - a.correct || b.score - a.score || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || a.username - b.username
+          }
           else if (order === 'change') {
-            return b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || b.score - a.score || b.correct - a.correct || a.username - b.username  
-          } 
+            return b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || b.score - a.score || b.correct - a.correct || a.username - b.username
+          }
           else if (order === 'name') {
             return a.username - b.username || b.score - a.score || b.correct - a.correct || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay
           }

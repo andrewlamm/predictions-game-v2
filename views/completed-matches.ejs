@@ -3,7 +3,7 @@
   <%- include('partials/helmet.ejs', {title: 'completed matches'}) %>
   <body>
     <div class="w-full min-h-screen flex flex-col justify-center items-center py-16">
-      <div class="w-full lg:w-4/5 flex-col justify-center items-center px-4">
+      <div class="w-full lg:w-5/6 flex-col justify-center items-center px-4">
         <%- include('partials/header.ejs', {title: 'completed matches', user: user}) %>
         <div class="w-full divContainer overflow-x-auto">
           <% if (matches.length === 0) { %>
@@ -37,18 +37,18 @@
               <tbody id="resultsBody">
                 <% for (let i = 0; i < matches.length; i++) { %>
                   <tr id="<% matches[i].match_id %>" class="text-center">
-                    <td class="flex flex-row items-center <%= matches[i].isComplete && matches[i].team1score > matches[i].team2score ? 'font-bold' : '' %>"><img src="<%= logos[matches[i].team1] %>" style="height: 20px" class="pr-2"> <%= matches[i].team1 %></td>
+                    <td class="flex flex-row items-center <%= matches[i].isComplete && matches[i].team1score > matches[i].team2score ? 'font-bold' : '' %>"><img src="/imgs/<%= matches[i].team1id %>.png" style="height: 20px" class="pr-2" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= matches[i].team1 %></td>
                     <td>vs</td>
-                    <td class="flex flex-row items-center <%= matches[i].isComplete && matches[i].team2score > matches[i].team1score ? 'font-bold' : '' %>"><img src="<%= logos[matches[i].team2] %>" style="height: 20px" class="pr-2"> <%= matches[i].team2 %></td>
+                    <td class="flex flex-row items-center <%= matches[i].isComplete && matches[i].team2score > matches[i].team1score ? 'font-bold' : '' %>"><img src="/imgs/<%= matches[i].team2id %>.png" style="height: 20px" class="pr-2" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= matches[i].team2 %></td>
                     <td class="border-x-2 border-black">
                       <div class="flex flex-row items-center justify-center">
                         <% if (matches[i].isLive) { %>
                           <span class="font-semibold">live</span>
                         <% } else { %>
-                          <img src="<%= logos[matches[i].team1] %>" style="height: 20px" class="pr-2"> 
-                          <span class="<%= matches[i].team1score > matches[i].team2score ? 'font-bold' : '' %>"><%= matches[i].team1score %></span> - 
-                          <span class="<%= matches[i].team2score > matches[i].team1score ? 'font-bold' : '' %>"><%= matches[i].team2score %></span> 
-                          <img src="<%= logos[matches[i].team2] %>" style="height: 20px" class="pl-2">
+                          <img src="/imgs/<%= matches[i].team1id %>.png" style="height: 20px" class="pr-2" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';">
+                          <span class="<%= matches[i].team1score > matches[i].team2score ? 'font-bold' : '' %>"><%= matches[i].team1score %></span> -
+                          <span class="<%= matches[i].team2score > matches[i].team1score ? 'font-bold' : '' %>"><%= matches[i].team2score %></span>
+                          <img src="/imgs/<%= matches[i].team2id %>.png" style="height: 20px" class="pl-2" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';">
                         <% } %>
                       </div>
                     </td>
@@ -56,9 +56,9 @@
                       <div class="flex flex-row items-center justify-center font-semibold">
                         <% if (matches[i].numPredictions > 0) { %>
                           <% if (matches[i].averageGuess < 50) { %>
-                            <img src="<%= logos[matches[i].team1] %>" style="height: 20px" class="pr-2" alt="<%= matches[i].team1 %>"><span class=""><%= 100-matches[i].averageGuess %>%</span>
+                            <img src="/imgs/<%= matches[i].team1id %>.png" style="height: 20px" class="pr-2" alt="<%= matches[i].team1 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"><span class=""><%= 100-matches[i].averageGuess %>%</span>
                           <% } else if (matches[i].averageGuess > 50) { %>
-                            <img src="<%= logos[matches[i].team2] %>" style="height: 20px" class="pr-2" alt="<%= matches[i].team2 %>"><span class=""><%= matches[i].averageGuess %>%</span>
+                            <img src="/imgs/<%= matches[i].team2id %>.png" style="height: 20px" class="pr-2" alt="<%= matches[i].team2 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"><span class=""><%= matches[i].averageGuess %>%</span>
                           <% } else { %>
                             50%
                           <% } %>
@@ -90,9 +90,9 @@
                       <div class="flex flex-row items-center justify-center font-semibold">
                         <% if (matches[i].userGuess !== undefined) { %>
                           <% if (matches[i].userGuess < 50) { %>
-                            <img src="<%= logos[matches[i].team1] %>" style="height: 20px" class="pr-2" alt="<%= matches[i].team1 %>"><span class=""><%= 100-matches[i].userGuess %>%</span>
+                            <img src="/imgs/<%= matches[i].team1id %>.png" style="height: 20px" class="pr-2" alt="<%= matches[i].team1 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"><span class=""><%= 100-matches[i].userGuess %>%</span>
                           <% } else if (matches[i].userGuess > 50) { %>
-                            <img src="<%= logos[matches[i].team2] %>" style="height: 20px" class="pr-2" alt="<%= matches[i].team2 %>"><span class=""><%= matches[i].userGuess %>%</span>
+                            <img src="/imgs/<%= matches[i].team2id %>.png" style="height: 20px" class="pr-2" alt="<%= matches[i].team2 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"><span class=""><%= matches[i].userGuess %>%</span>
                           <% } else { %>
                             50%
                           <% } %>

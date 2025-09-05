@@ -2,16 +2,13 @@ const express = require('express')
 const app = express()
 const passport = require('passport')
 const session = require('cookie-session')
-const JSSoup = require('jssoup').default
 const bodyParser = require('body-parser')
 const SteamStrategy = require('passport-steam').Strategy
-const { gotScraping } = require('got-scraping')
-const puppeteer = require('puppeteer-extra')
-const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 
+const { HLTV } = require('hltv-next')
+
+const { TOURNAMENT_ID, TOURNAMENT_NAME } = require('./constants')
 const db = require('./db')
-
-puppeteer.use(StealthPlugin())
 
 app.set('view engine', 'ejs')
 app.use(express.static(`${__dirname}/static`))
@@ -63,95 +60,6 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-async function getParsedPage(url) {
-  return new Promise(async function (resolve, reject) {
-    await delay(1000)
-
-    try {
-      const browser = await puppeteer.launch({ 
-        headless: true, 
-        args: [
-          '--autoplay-policy=user-gesture-required',
-          '--disable-background-networking',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-breakpad',
-          '--disable-client-side-phishing-detection',
-          '--disable-component-update',
-          '--disable-default-apps',
-          '--disable-dev-shm-usage',
-          '--disable-domain-reliability',
-          '--disable-extensions',
-          '--disable-features=AudioServiceOutOfProcess',
-          '--disable-hang-monitor',
-          '--disable-ipc-flooding-protection',
-          '--disable-notifications',
-          '--disable-offer-store-unmasked-wallet-cards',
-          '--disable-popup-blocking',
-          '--disable-print-preview',
-          '--disable-prompt-on-repost',
-          '--disable-renderer-backgrounding',
-          '--disable-setuid-sandbox',
-          '--disable-speech-api',
-          '--disable-sync',
-          '--hide-scrollbars',
-          '--ignore-gpu-blacklist',
-          '--metrics-recording-only',
-          '--mute-audio',
-          '--no-default-browser-check',
-          '--no-first-run',
-          '--no-pings',
-          '--no-sandbox',
-          '--no-zygote',
-          '--password-store=basic',
-          '--use-gl=swiftshader',
-          '--use-mock-keychain',
-        ]
-      })
-      const browserPage = await browser.newPage()
-
-      await browserPage.setRequestInterception(true)
-
-      browserPage.on('request', async request => {
-        if (request.resourceType() === 'fetch' || request.resourceType() === 'image' || request.resourceType() === 'media' || request.resourceType() === 'font' || request.resourceType() === 'stylesheet' || request.resourceType() === 'websocket' || request.resourceType() === 'manifest' || request.resourceType() === 'other' || 
-            (request.resourceType() === 'script' && !request.url().includes('hltv.js'))) {
-          request.abort()
-        } else {
-          // console.log(request.url())
-          request.continue()
-        }
-      })
-
-      await browserPage.setDefaultNavigationTimeout(60000) // 1 minute
-      await browserPage.goto(url, { waitUntil: 'networkidle0' })
-      
-      const fullPage = await browserPage.evaluate(() => document.body.innerHTML)
-
-      browser.close()
-      
-      const page = '<html><body>' + fullPage.substring(fullPage.indexOf('<div class="navbar">')) // reduce page size to only relevant content
-      // return new JSSoup(page)
-      resolve(new JSSoup(page))
-    }
-    catch (err) {
-      console.log(err)
-      // const page = await (await gotScraping.get(url)).body
-      console.log('repeating parse')
-      const page = await getParsedPage(url)
-
-      // return new JSSoup(page)
-      resolve(page)
-    }
-  })
-}
-
-/* Tournament Links */
-const TOURNAMENT_URL = 'https://www.hltv.org/events/6973/blast-premier-fall-groups-2023'
-const MATCHES_URL = 'https://www.hltv.org/events/6973/matches'
-const RESULTS_URL = 'https://www.hltv.org/results?event=6973'
-const TOURNAMENT_NAME = 'BLAST Premier Fall Groups 2023'
-
-const TEAM_TO_LOGO = require('./logos')
 const TEAM_TO_ID = {}
 const ID_TO_TEAM = {}
 const all_matches = {}
@@ -196,15 +104,14 @@ function findUserInLeaderboard(user) {
 
 async function loadTeams() {
   return new Promise(async function (resolve, reject) {
-    const web_data = await getParsedPage(TOURNAMENT_URL)
-    const all_teams = web_data.findAll('div', {'class': 'team-box'} )
+    const event = await HLTV.getEvent({id: TOURNAMENT_ID})
+    event.teams.forEach((team) => {
+      const team_id = team.id
+      const team_name = team.name
 
-    for (let i = 0; i < all_teams.length; i++) {
-      const team_name = all_teams[i].find('div', {'class': 'team-name'} ).find('div', {'class': 'text'} ).text
-
-      TEAM_TO_ID[team_name] = i
-      ID_TO_TEAM[i] = team_name
-    }
+      TEAM_TO_ID[team_name] = team_id
+      ID_TO_TEAM[team_id] = team_name
+    })
 
     resolve(1)
   })
@@ -212,79 +119,51 @@ async function loadTeams() {
 
 async function loadMatches() {
   return new Promise(async function (resolve, reject) {
-    const match_data = await getParsedPage(MATCHES_URL)
-    const results_data = await getParsedPage(RESULTS_URL)
+    const matches = await HLTV.getMatches()
+    matches.forEach(match => {
+      const eventId = match.event.id
+      if (eventId === TOURNAMENT_ID) {
+        if (match.team1.id === undefined || match.team2.id === undefined) return // skip matches with a TBD opponent
 
-    const live_matches = match_data.findAll('div', {'class': 'liveMatch'} )
-    const upcoming_matches = match_data.findAll('div', {'class': 'upcomingMatch'} )
-    const completed_matches = results_data.findAll('div', {'class': 'result-con'} )
-
-    for (let i = 0; i < live_matches.length; i++) {
-      const match_id = parseInt(live_matches[i].attrs['data-livescore-match'])
-
-      const teams = live_matches[i].findAll('div', {'class': 'matchTeamName'} )
-      const team1 = teams[0].text
-      const team2 = teams[1].text
-
-      const scores = live_matches[i].findAll('div', {'class': 'matchTeamScore'} )
-      const team1score = scores[0].text.substring(1)
-      const team2score = scores[1].text.substring(1)
-      
-      all_matches[match_id] = {
-        match_id: match_id,
-        team1: team1,
-        team2: team2,
-        team1score: team1score,
-        team2score: team2score,
-        startTime: new Date(),
-        endTime: undefined,
-        isLive: true,
-        isComplete: false,
-        sumPredictions: 0,
-        numPredictions: 0,
-      }
-    }
-
-    for (let i = 0; i < upcoming_matches.length; i++) {
-      const match_id = parseInt(upcoming_matches[i].find('a').attrs['href'].split('/')[2])
-
-      if (upcoming_matches[i].find('div', {'class': 'matchInfoEmpty'} ) === undefined) {
-        const teams = upcoming_matches[i].findAll('div', {'class': 'matchTeamName'} )
-        if (teams.length != 2) continue // skip matches with a TBD opponent
-        const team1 = teams[0].text
-        const team2 = teams[1].text
-
-        const match_time = parseInt(upcoming_matches[i].find('div', {'class': 'matchTime'} ).attrs['data-unix'])
+        const match_id = match.id
+        const team1id = match.team1.id
+        const team2id = match.team2.id
+        const team1 = ID_TO_TEAM[team1id]
+        const team2 = ID_TO_TEAM[team2id]
+        const startTime = match.live ? new Date() : new Date(match.date)
+        const isLive = match.live
 
         all_matches[match_id] = {
           match_id: match_id,
           team1: team1,
           team2: team2,
-          team1score: 0,
-          team2score: 0,
-          startTime: new Date(match_time),
+          team1id: team1id,
+          team2id: team2id,
+          startTime: startTime,
           endTime: undefined,
-          isLive: false,
+          isLive: isLive,
           isComplete: false,
+          team1score: undefined,
+          team2score: undefined,
           sumPredictions: 0,
           numPredictions: 0,
         }
       }
-    }
+    })
 
-    for (let i = 0; i < completed_matches.length; i++) {
-      const match_id = parseInt(completed_matches[i].find('a').attrs['href'].split('/')[2])
+    const results = await HLTV.getResults({eventIds: [TOURNAMENT_ID]})
+    results.forEach(result => {
+      const match_id = result.id
+      const team1 = result.team1.name
+      const team2 = result.team2.name
+      const team1id = TEAM_TO_ID[team1]
+      const team2id = TEAM_TO_ID[team2]
+      console.log(team1id, team1, team2id, team2)
+      const startTime = new Date(result.date)
+      const team1score = result.result.team1
+      const team2score = result.result.team2
 
-      const team1 = completed_matches[i].find('div', {'class': 'team1'} ).text
-      const team2 = completed_matches[i].find('div', {'class': 'team2'} ).text
-
-      const scores = completed_matches[i].find('td', {'class': 'result-score'} ).findAll('span')
-      const team1score = parseInt(scores[0].text)
-      const team2score = parseInt(scores[1].text)
-
-      const end_time = parseInt(completed_matches[i].attrs['data-zonedgrouping-entry-unix'])
-
-      if (end_time + 86400000 > new Date().getTime()) {
+      if (result.date + 86400000 > new Date().getTime()) {
         recently_completed.add(match_id)
       }
 
@@ -292,17 +171,18 @@ async function loadMatches() {
         match_id: match_id,
         team1: team1,
         team2: team2,
-        team1score: team1score,
-        team2score: team2score,
-        startTime: new Date(end_time),
-        endTime: new Date(end_time),
+        team1id: team1id,
+        team2id: team2id,
+        startTime: startTime,
+        endTime: startTime,
         isLive: false,
         isComplete: true,
+        team1score: team1score,
+        team2score: team2score,
         sumPredictions: 0,
         numPredictions: 0,
       }
-    }
-    
+    })
     resolve(1)
   })
 }
@@ -312,6 +192,7 @@ async function loadDatabases() {
   return new Promise(async function (resolve, reject) {
     await db.find().forEach(async function (doc) {
       for (const [key, val] of Object.entries(doc)) {
+        console.log(key, val)
         if (!isNaN(key)) { // if key is a number, then this is a valid match id
           all_matches[key].numPredictions += 1
           all_matches[key].sumPredictions += val
@@ -403,7 +284,7 @@ async function newCompletedMatch(match_id) {
       await db.find().forEach(async function (doc) {
         if (!isNaN(doc._id)) {
           const query = { _id: doc._id }
-          
+
           const update = { $set: {} }
 
           if (doc[match_id] !== undefined) {
@@ -451,137 +332,132 @@ async function newCompletedMatch(match_id) {
 
 async function checkMatches() {
   // function that loads all matches to check for new matches (repeats from timer)
-  const match_data = await getParsedPage(MATCHES_URL)
-  const results_data = await getParsedPage(RESULTS_URL)
+  const matches = await HLTV.getMatches()
+  matches.forEach(match => {
+    const eventId = match.event.id
+    if (eventId === TOURNAMENT_ID) {
+      const match_id = match.id
+      if (match.live) {
+        if (all_matches[match_id] === undefined) {
+          console.log(`new untracked live match: ${match_id}`)
 
-  const live_matches = match_data.findAll('div', {'class': 'liveMatch'} )
-  const upcoming_matches = match_data.findAll('div', {'class': 'upcomingMatch'} )
-  const completed_matches = results_data.findAll('div', {'class': 'result-con'} )
+          const team1id = match.team1.id
+          const team2id = match.team2.id
+          const team1 = ID_TO_TEAM[team1id]
+          const team2 = ID_TO_TEAM[team2id]
 
-  for (let i = 0; i < live_matches.length; i++) {
-    const match_id = parseInt(live_matches[i].attrs['data-livescore-match'])
-
-    if (all_matches[match_id] === undefined) {
-      console.log(`new untracked live match: ${match_id}`)
-      const teams = live_matches[i].findAll('div', {'class': 'matchTeamName'} )
-      const team1 = teams[0].text
-      const team2 = teams[1].text
-
-      all_matches[match_id] = {
-        match_id: match_id,
-        team1: team1,
-        team2: team2,
-        team1score: 0,
-        team2score: 0,
-        startTime: new Date(),
-        endTime: undefined,
-        isLive: true,
-        isComplete: false,
-        sumPredictions: 0,
-        numPredictions: 0,
+          all_matches[match_id] = {
+            match_id: match_id,
+            team1: team1,
+            team2: team2,
+            team1id: team1id,
+            team2id: team2id,
+            team1score: undefined,
+            team2score: undefined,
+            startTime: new Date(),
+            endTime: undefined,
+            isLive: true,
+            isComplete: false,
+            sumPredictions: 0,
+            numPredictions: 0,
+          }
+        }
+        else if (!all_matches[match_id].isLive) {
+          console.log(`now match live: ${match_id}`)
+          all_matches[match_id].isLive = true
+          all_matches[match_id].startTime = new Date() < all_matches[match_id].startTime ? new Date() : all_matches[match_id].startTime
+        }
       }
-    }
-    else if (!all_matches[match_id].isLive) {
-      console.log(`now match live: ${match_id}`)
-      all_matches[match_id].isLive = true
-      all_matches[match_id].startTime = new Date() < all_matches[match_id].startTime ? new Date() : all_matches[match_id].startTime
-    }
+      else {
+        if (all_matches[match_id] === undefined) {
+          if (match.team1.id === undefined || match.team2.id === undefined) return // skip matches with a TBD opponent
 
-    const scores = live_matches[i].findAll('div', {'class': 'matchTeamScore'} )
-    const team1score = scores[0].text.substring(1)
-    const team2score = scores[1].text.substring(1)
+          console.log(`new upcoming match: ${match_id}`)
+          const team1id = match.team1.id
+          const team2id = match.team2.id
+          const team1 = ID_TO_TEAM[team1id]
+          const team2 = ID_TO_TEAM[team2id]
+          const startTime = new Date(match.date)
 
-    all_matches[match_id].team1score = team1score
-    all_matches[match_id].team2score = team2score
-  }
+          all_matches[match_id] = {
+            match_id: match_id,
+            team1: team1,
+            team2: team2,
+            team1id: team1id,
+            team2id: team2id,
+            team1score: undefined,
+            team2score: undefined,
+            startTime: startTime,
+            endTime: undefined,
+            isLive: false,
+            isComplete: false,
+            sumPredictions: 0,
+            numPredictions: 0,
+          }
+        }
+        else {
+          const startTime = new Date(match.date)
+          all_matches[match_id].startTime = startTime
 
-  for (let i = 0; i < upcoming_matches.length; i++) {
-    const match_id = parseInt(upcoming_matches[i].find('a').attrs['href'].split('/')[2])
-
-    if (all_matches[match_id] === undefined) {
-      if (upcoming_matches[i].find('div', {'class': 'matchInfoEmpty'} ) === undefined) {
-        const teams = upcoming_matches[i].findAll('div', {'class': 'matchTeamName'} )
-        if (teams.length != 2) continue // skip matches with a TBD opponent
-        console.log(`new upcoming match: ${match_id}`)
-        const team1 = teams[0].text
-        const team2 = teams[1].text
-
-        const match_time = parseInt(upcoming_matches[i].find('div', {'class': 'matchTime'} ).attrs['data-unix'])
-
-        all_matches[match_id] = {
-          match_id: match_id,
-          team1: team1,
-          team2: team2,
-          team1score: 0,
-          team2score: 0,
-          startTime: new Date(match_time),
-          endTime: undefined,
-          isLive: false,
-          isComplete: false,
-          sumPredictions: 0,
-          numPredictions: 0,
+          if (all_matches[match_id].isLive) {
+            console.log(`match unlive: ${match_id}`)
+            all_matches[match_id].isLive = false
+          }
         }
       }
     }
-    else {
-      const match_time = parseInt(upcoming_matches[i].find('div', {'class': 'matchTime'} ).attrs['data-unix'])
-      all_matches[match_id].startTime = new Date(match_time)
+  })
 
-      if (all_matches[match_id].isLive) {
-        console.log(`match unlive: ${match_id}`)
-        all_matches[match_id].isLive = false
-      }
-    }
-  }
-
-  for (let i = 0; i < completed_matches.length; i++) {
-    const match_id = parseInt(completed_matches[i].find('a').attrs['href'].split('/')[2])
-
+  const results = await HLTV.getResults({eventIds: [TOURNAMENT_ID]})
+  results.forEach(async result => {
+    const match_id = result.id
     if (all_matches[match_id] === undefined) {
-      console.log(`untracked match complete: ${match_id}`)
+      console.log(`new completed match: ${match_id}`)
 
-      const team1 = completed_matches[i].find('div', {'class': 'team1'} ).text
-      const team2 = completed_matches[i].find('div', {'class': 'team2'} ).text
+      const team1 = result.team1.name
+      const team2 = result.team2.name
+      const team1id = TEAM_TO_ID[team1]
+      const team2id = TEAM_TO_ID[team2]
+      const team1score = result.result.team1
+      const team2score = result.result.team2
 
-      const scores = completed_matches[i].find('td', {'class': 'result-score'} ).findAll('span')
-      const team1score = parseInt(scores[0].text)
-      const team2score = parseInt(scores[1].text)
-
-      const end_time = parseInt(completed_matches[i].attrs['data-zonedgrouping-entry-unix'])
+      const resultDate = new Date(result.date)
+      const endTime = new Date() < resultDate ? new Date() : resultDate
 
       all_matches[match_id] = {
         match_id: match_id,
         team1: team1,
         team2: team2,
+        team1id: team1id,
+        team2id: team2id,
         team1score: team1score,
         team2score: team2score,
-        startTime: new Date() < new Date(end_time) ? new Date() : new Date(end_time),
-        endTime: new Date() < new Date(end_time) ? new Date() : new Date(end_time),
+        startTime: endTime,
+        endTime: endTime,
         isLive: false,
         isComplete: true,
         sumPredictions: 0,
         numPredictions: 0,
       }
     }
-    else if (!all_matches[match_id].isComplete) { 
+    else if (!all_matches[match_id].isComplete) {
       console.log(`match complete: ${match_id}`)
 
-      const scores = completed_matches[i].find('td', {'class': 'result-score'} ).findAll('span')
-      const team1score = parseInt(scores[0].text)
-      const team2score = parseInt(scores[1].text)
+      const team1score = result.result.team1
+      const team2score = result.result.team2
 
-      const end_time = parseInt(completed_matches[i].attrs['data-zonedgrouping-entry-unix'])
+      const resultDate = new Date(result.date)
 
       all_matches[match_id].isLive = false
       all_matches[match_id].isComplete = true
-      all_matches[match_id].endTime = new Date() < new Date(end_time) ? new Date() : new Date(end_time)
+      all_matches[match_id].endTime = new Date() < resultDate ? new Date() : resultDate
       all_matches[match_id].team1score = team1score
       all_matches[match_id].team2score = team2score
 
       recently_completed.add(match_id)
       await newCompletedMatch(match_id)
     }
-  }
+  })
 }
 
 async function updateRecentlyCompleted() {
@@ -764,12 +640,12 @@ async function checkDocumentExists(req, res, next) {
 
         if (result.displayName !== req.user._json.personaname || result.steamURL !== req.user._json.profileurl || result.avatar !== req.user.photos[2].value) {
           const query = { _id: req.user._json.steamid }
-          const update = { 
-            $set: { 
-              displayName: req.user._json.personaname, 
-              steamURL: req.user._json.profileurl, 
-              avatar: req.user.photos[2].value 
-            } 
+          const update = {
+            $set: {
+              displayName: req.user._json.personaname,
+              steamURL: req.user._json.profileurl,
+              avatar: req.user.photos[2].value
+            }
           }
 
           const updateRes = await db.updateOne(query, update)
@@ -778,7 +654,7 @@ async function checkDocumentExists(req, res, next) {
         }
         else {
           // believe this is necessary with the await
-          next() 
+          next()
         }
       }
     }
@@ -859,7 +735,7 @@ async function insertGuessHelper(req, res, next) {
         // new guess for user
         all_matches[req.body.match_id].numPredictions += 1
       }
-      
+
       all_matches[req.body.match_id].sumPredictions += parseInt(req.body.prob)
 
       const update = { $set: {} }
@@ -868,7 +744,7 @@ async function insertGuessHelper(req, res, next) {
       const updateRes = await db.updateOne(query, update)
 
       next()
-    } 
+    }
     catch (err) {
       console.log(`insert guess fail, error: ${err}, user: ${req.user._json.steamid}`)
       next()
@@ -957,7 +833,7 @@ app.get('/', [checkDocumentExists, getLiveMatches, getUpcomingMatches, getComple
     const completedMatches = res.locals.completed_matches.filter(match => match.isComplete).slice(0, MATCHES_SHOWN)
     const leaderboardDisplay = leaderboard.slice(0, LEADERBOARD_SHOWN)
 
-    res.render('index', { user: req.user, upcomingMatches: upcomingMatches, completedMatches: completedMatches, leaderboard: leaderboardDisplay, logos: TEAM_TO_LOGO, tournamentName: TOURNAMENT_NAME })
+    res.render('index', { user: req.user, upcomingMatches: upcomingMatches, completedMatches: completedMatches, leaderboard: leaderboardDisplay, tournamentName: TOURNAMENT_NAME })
   }
 })
 
@@ -967,7 +843,7 @@ app.get('/upcomingMatches', [checkDocumentExists, getUpcomingMatches, findUserPl
   }
   else {
     req.session.currLink = '/upcomingMatches'
-    res.render('upcoming-matches', { user: req.user, matches: res.locals.upcoming_matches, logos: TEAM_TO_LOGO, userPoints: res.locals.userPoints, userPlace: toOrdinal(res.locals.userPlace), totalUsers: leaderboard.length })
+    res.render('upcoming-matches', { user: req.user, matches: res.locals.upcoming_matches, userPoints: res.locals.userPoints, userPlace: toOrdinal(res.locals.userPlace), totalUsers: leaderboard.length })
   }
 })
 
@@ -981,7 +857,7 @@ app.get('/completedMatches', [checkDocumentExists, getCompletedMatches], (req, r
   }
   else {
     req.session.currLink = '/completedMatches'
-    res.render('completed-matches', { user: req.user, matches: res.locals.completed_matches, logos: TEAM_TO_LOGO })
+    res.render('completed-matches', { user: req.user, matches: res.locals.completed_matches })
   }
 })
 
@@ -1001,7 +877,7 @@ app.get('/user/:userID', [checkDocumentExists, getUserInfo], (req, res) => {
   }
   else {
     req.session.currLink = `/user/${req.params.userID}`
-    res.render('user-profile', { user: req.user, userInfo: res.locals.userInfo, totalUsers: leaderboard.length, logos: TEAM_TO_LOGO })
+    res.render('user-profile', { user: req.user, userInfo: res.locals.userInfo, totalUsers: leaderboard.length })
   }
 })
 
@@ -1047,4 +923,4 @@ app.use(function(req, res, next) {
 
 app.listen(process.env.PORT || 4000, () => console.log("Server is running..."))
 
-// npx tailwindcss -i .\static\styles.css -o ./static/output.css --watch
+// npx tailwindcss -i ./static/styles.css -o ./static/output.css --watch

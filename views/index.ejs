@@ -3,18 +3,18 @@
   <%- include('partials/helmet.ejs', {title: 'home'}) %>
   <body>
     <div class="w-full min-h-screen flex flex-col justify-center items-center py-16">
-      <div class="w-full lg:w-4/5 flex-col justify-center items-center px-4">
+      <div class="w-full lg:w-5/6 flex-col justify-center items-center px-4">
         <%- include('partials/header.ejs', {title: 'home', user: user}) %>
         <div class="w-full flex flex-col-reverse md:flex-row">
           <div class="w-full md:w-2/3 flex flex-col">
-            <div class="w-full text-center font-bold text-2xl mb-4 divContainer">
-              how well can you predict cs:go matches?
-            </div>
-            <div class="w-full mb-4 divContainer text-center">
-              predict the outcomes of <span class="font-bold"><%= tournamentName %></span> cs:go matches in this predictor game, inspired by <a href="https://projects.fivethirtyeight.com/2022-nfl-forecasting-game/" target="_blank" rel="noopener noreferrer">FiveThiryEight's NFL Forecasting Game</a>.
+            <div class="w-full text-center mb-4 divContainer">
+              <div class="font-bold text-2xl">how well can you predict cs:go matches?</div>
+              <div>
+                predict the outcomes of <span class="font-bold"><%= tournamentName %></span> cs:go matches in this predictor game, inspired by (now discontinued) <a href="https://github.com/fivethirtyeight/nfl-elo-game" target="_blank" rel="noopener noreferrer">FiveThiryEight's NFL Forecasting Game</a>.
+              </div>
             </div>
             <div class="w-full mb-4 divContainerLarger text-center">
-              head over to the <a href="/upcomingMatches">upcoming matches</a> page (after <a href="/auth/steam">logging in through steam</a>)  to predict the outcomes of upcoming matches—however, there's a twist. instead of simply picking what teams will win, you will need to also add the confidence in your pick with the slider. correct picks with high confidence rewards you more points than correct picks with low confidence; however, incorrect high confidence picks are penalized harshly, especially when compared to incorrect low confidence picks. 
+              head over to the <a href="/upcomingMatches">upcoming matches</a> page (after <a href="/auth/steam">logging in through steam</a>) to predict the outcomes of upcoming matches—but! there's a twist. instead of simply picking what teams will win, you will need to also add the confidence in your pick with the slider. correct picks with high confidence rewards you more points than correct picks with low confidence; however, incorrect high confidence picks are penalized harshly, especially when compared to incorrect low confidence picks.
             </div>
             <div class="w-full mb-4 divContainerLarger text-center">
               the scoring system uses rescaled <a href="https://en.wikipedia.org/wiki/Brier_score" target="_blank" rel="noopener noreferrer">brier scores</a>, where possible points from each game range from a 25 point gain to a 75 point loss. the formula used is
@@ -26,7 +26,7 @@
               where <code>p</code> is the confidence value you gave to the winning team.
             </div>
             <div class="w-full mb-4 divContainerLarger text-center">
-              for example, suppose you gave Heroic a 87% chance to beat Imperial in the semi-finals of <a href="https://www.hltv.org/events/6972/blast-premier-spring-final-2023" target="_blank" rel="noopener noreferrer">Blast Premier Spring Final 2023</a>. Despite Imperial's best efforts, <a href="https://clips.twitch.tv/CrowdedYummyPorcupineLeeroyJenkins-R9BA-LUFB7TQanX9" target="_blank" rel="noopener noreferrer">cadiaN's 1v2 clutch for match point</a> allowed to Heroic to end their semi-final curse with a <a href="https://www.hltv.org/matches/2364751/heroic-vs-imperial-blast-premier-spring-final-2023" target="_blank" rel="noopener noreferrer">2-1 victory</a>. Since Heroic won and you predicted them to win with 87% confidence, you would have earned 23.3 points. However, if Imperial did end up winning, you would have lost 50.7 points instead.
+              for example, suppose in the finals of <a href="https://www.hltv.org/events/8038/iem-cologne-2025" target="_blank" rel="noopener noreferrer">IEM Cologne 2025</a> you gave Spirit a 87% chance to beat MOUZ. With Spirit's 3-0 victory, you would have earned 23.3 points for this match. However, if MOUZ did end up winning, you would have lost 50.7 points instead.
             </div>
             <div class="w-full mb-4 divContainerLarger text-center">
               finally, you can view the results of previous matches in the <a href="/completedMatches">completed matches</a> page and find the leaderboard at the <a href="/leaderboard">leaderboard</a> page.
@@ -47,7 +47,7 @@
                   <% for (let i = 0; i < upcomingMatches.length; i++) { %>
                     <div class="w-full flex flex-col items-center px-4 my-1">
                       <div class="w-full flex flex-row items-center">
-                        <div class="flex flex-row items-center"><img src="<%= logos[upcomingMatches[i].team1] %>" style="height: 20px" class="pr-1"></div>
+                        <div class="flex flex-row items-center"><img src="/imgs/<%= upcomingMatches[i].team1id %>.png" style="height: 20px" class="pr-1" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"></div>
                         <div class="flex flex-row items-center flex-grow"><%= upcomingMatches[i].team1 %></div>
                         <% if (upcomingMatches[i].isLive) { %>
                           <div class="text-right px-2">
@@ -63,7 +63,7 @@
                         <% } %>
                       </div>
                       <div class="w-full flex flex-row items-center">
-                        <div class="flex flex-row items-center"><img src="<%= logos[upcomingMatches[i].team2] %>" style="height: 20px" class="pr-1"></div>
+                        <div class="flex flex-row items-center"><img src="/imgs/<%= upcomingMatches[i].team2id %>.png" style="height: 20px" class="pr-1" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"></div>
                         <div class="flex flex-row items-center flex-grow"><%= upcomingMatches[i].team2 %></div>
                         <% if (upcomingMatches[i].isLive) { %>
                           <div class="text-right px-2">
@@ -73,9 +73,9 @@
                             <% if (user) { %>
                               <% if (upcomingMatches[i].userGuess !== undefined) { %>
                                 <% if (upcomingMatches[i].userGuess < 50) { %>
-                                  <img src="<%= logos[upcomingMatches[i].team1] %>" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team1 %>"> <%= 100-upcomingMatches[i].userGuess %>%
+                                  <img src="/imgs/<%= upcomingMatches[i].team1id %>.png" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team1 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= 100-upcomingMatches[i].userGuess %>%
                                 <% } else if (upcomingMatches[i].userGuess > 50) { %>
-                                  <img src="<%= logos[upcomingMatches[i].team2] %>" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team2 %>"> <%= upcomingMatches[i].userGuess %>%
+                                  <img src="/imgs/<%= upcomingMatches[i].team2id %>.png" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team2 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= upcomingMatches[i].userGuess %>%
                                 <% } else { %>
                                   50%
                                 <% } %>
@@ -83,9 +83,9 @@
                             <% } else { %>
                               <% if (upcomingMatches[i].numPredictions > 0) { %>
                                 <% if (upcomingMatches[i].averageGuess < 50) { %>
-                                  <img src="<%= logos[upcomingMatches[i].team1] %>" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team1 %>"> <%= 100-upcomingMatches[i].averageGuess %>%
+                                  <img src="/imgs/<%= upcomingMatches[i].team1id %>.png" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team1 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= 100-upcomingMatches[i].averageGuess %>%
                                 <% } else if (upcomingMatches[i].averageGuess > 50) { %>
-                                  <img src="<%= logos[upcomingMatches[i].team2] %>" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team2 %>"> <%= upcomingMatches[i].averageGuess %>%
+                                  <img src="/imgs/<%= upcomingMatches[i].team2id %>.png" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team2 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= upcomingMatches[i].averageGuess %>%
                                 <% } else { %>
                                   50%
                                 <% } %>
@@ -97,9 +97,9 @@
                             <% if (user) { %>
                               <% if (upcomingMatches[i].userGuess !== undefined) { %>
                                 <% if (upcomingMatches[i].userGuess < 50) { %>
-                                  <img src="<%= logos[upcomingMatches[i].team1] %>" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team1 %>"> <%= 100-upcomingMatches[i].userGuess %>%
+                                  <img src="/imgs/<%= upcomingMatches[i].team1id %>.png" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team1 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= 100-upcomingMatches[i].userGuess %>%
                                 <% } else if (upcomingMatches[i].userGuess > 50) { %>
-                                  <img src="<%= logos[upcomingMatches[i].team2] %>" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team2 %>"> <%= upcomingMatches[i].userGuess %>%
+                                  <img src="/imgs/<%= upcomingMatches[i].team2id %>.png" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team2 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= upcomingMatches[i].userGuess %>%
                                 <% } else { %>
                                   50%
                                 <% } %>
@@ -107,9 +107,9 @@
                             <% } else { %>
                               <% if (upcomingMatches[i].numPredictions > 0) { %>
                                 <% if (upcomingMatches[i].averageGuess < 50) { %>
-                                  <img src="<%= logos[upcomingMatches[i].team1] %>" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team1 %>"> <%= 100-upcomingMatches[i].averageGuess %>%
+                                  <img src="/imgs/<%= upcomingMatches[i].team1id %>.png" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team1 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= 100-upcomingMatches[i].averageGuess %>%
                                 <% } else if (upcomingMatches[i].averageGuess > 50) { %>
-                                  <img src="<%= logos[upcomingMatches[i].team2] %>" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team2 %>"> <%= upcomingMatches[i].averageGuess %>%
+                                  <img src="/imgs/<%= upcomingMatches[i].team2id %>.png" style="height: 20px" class="pr-1" alt="<%= upcomingMatches[i].team2 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= upcomingMatches[i].averageGuess %>%
                                 <% } else { %>
                                   50%
                                 <% } %>
@@ -135,16 +135,16 @@
                   <% for (let i = 0; i < completedMatches.length; i++) { %>
                     <div class="w-full flex flex-col items-center px-4 my-1">
                       <div class="w-full flex flex-row items-center">
-                        <div class="flex flex-row items-center"><img src="<%= logos[completedMatches[i].team1] %>" style="height: 20px" class="pr-1"></div>
+                        <div class="flex flex-row items-center"><img src="/imgs/<%= completedMatches[i].team1id %>.png" style="height: 20px" class="pr-1" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"></div>
                         <div class="flex flex-row items-center flex-grow <%= completedMatches[i].team1score > completedMatches[i].team2score ? 'font-bold' : '' %>"><%= completedMatches[i].team1 %></div>
                         <div class="text-right px-2 <%= completedMatches[i].team1score > completedMatches[i].team2score ? 'font-bold' : '' %>"><%= completedMatches[i].team1score %></div>
                         <div class="font-semibold text-center flex flex-row items-center justify-center" style="width: 70px" title="<%= user ? 'your guess' : 'average guess' %>">
                           <% if (user) { %>
                             <% if (completedMatches[i].userGuess !== undefined) { %>
                               <% if (completedMatches[i].userGuess < 50) { %>
-                                <img src="<%= logos[completedMatches[i].team1] %>" style="height: 20px" class="pr-1" alt="<%= completedMatches[i].team1 %>"> <%= 100-completedMatches[i].userGuess %>%
+                                <img src="/imgs/<%= completedMatches[i].team1id %>.png" style="height: 20px" class="pr-1" alt="<%= completedMatches[i].team1 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= 100-completedMatches[i].userGuess %>%
                               <% } else if (completedMatches[i].userGuess > 50) { %>
-                                <img src="<%= logos[completedMatches[i].team2] %>" style="height: 20px" class="pr-1" alt="<%= completedMatches[i].team2 %>"> <%= completedMatches[i].userGuess %>%
+                                <img src="/imgs/<%= completedMatches[i].team2id %>.png" style="height: 20px" class="pr-1" alt="<%= completedMatches[i].team2 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= completedMatches[i].userGuess %>%
                               <% } else { %>
                                 50%
                               <% } %>
@@ -152,9 +152,9 @@
                           <% } else { %>
                             <% if (completedMatches[i].numPredictions > 0) { %>
                               <% if (completedMatches[i].averageGuess < 50) { %>
-                                <img src="<%= logos[completedMatches[i].team1] %>" style="height: 20px" class="pr-1" alt="<%= completedMatches[i].team1 %>"> <%= 100-completedMatches[i].averageGuess %>%
+                                <img src="/imgs/<%= completedMatches[i].team1id %>.png" style="height: 20px" class="pr-1" alt="<%= completedMatches[i].team1 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= 100-completedMatches[i].averageGuess %>%
                               <% } else if (completedMatches[i].averageGuess > 50) { %>
-                                <img src="<%= logos[completedMatches[i].team2] %>" style="height: 20px" class="pr-1" alt="<%= completedMatches[i].team2 %>"> <%= completedMatches[i].averageGuess %>%
+                                <img src="/imgs/<%= completedMatches[i].team2id %>.png" style="height: 20px" class="pr-1" alt="<%= completedMatches[i].team2 %>" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"> <%= completedMatches[i].averageGuess %>%
                               <% } else { %>
                                 50%
                               <% } %>
@@ -163,7 +163,7 @@
                         </div>
                       </div>
                       <div class="w-full flex flex-row items-center">
-                        <div class="flex flex-row items-center"><img src="<%= logos[completedMatches[i].team2] %>" style="height: 20px" class="pr-1"></div>
+                        <div class="flex flex-row items-center"><img src="/imgs/<%= completedMatches[i].team2id %>.png" style="height: 20px" class="pr-1" onerror="if (this.src != 'imgs/placeholder.png') this.src = 'imgs/placeholder.png';"></div>
                         <div class="flex flex-row items-center flex-grow <%= completedMatches[i].team2score > completedMatches[i].team1score ? 'font-bold' : '' %>"><%= completedMatches[i].team2 %></div>
                         <div class="text-right px-2 <%= completedMatches[i].team2score > completedMatches[i].team1score ? 'font-bold' : '' %>"><%= completedMatches[i].team2score %></div>
                         <div class="font-semibold text-center flex flex-row items-center justify-center" style="width: 70px" title="<%= user ? 'your points change' : 'average points change' %>">
@@ -250,7 +250,7 @@
                             </td>
                             <td class="text-left truncate"><a href="/user/<%= leaderboard[i].user %>" class="text-black hover:underline"><%= leaderboard[i].username %></a></td>
                             <td class="text-center">
-                              <div class="w-full flex flex-row justify-center items-end">
+                              <div class="w-full flex flex-row justify-center items-center">
                                 <% if (leaderboard[i].prevDay < 0) { %>
                                   <%= leaderboard[i].score.toFixed(1) %> <span class="text-sm ml-2">(<span class="text-red-600"><%= leaderboard[i].prevDay.toFixed(1) %></span>)</span>
                                 <% } else if (leaderboard[i].prevDay > 0) { %>
@@ -349,7 +349,7 @@
         document.getElementById("sidebar").style.height = 'auto'
       }
     })
-    
+
 
     /* Timers */
     function setTimer(diff) {
@@ -369,7 +369,7 @@
         else return 'SOON'
       }
     }
-    
+
     setInterval(function() {
       const currTime = new Date().getTime()
       <% for (let i = 0; i < upcomingMatches.length; i++) { %>
