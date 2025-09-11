@@ -1,5 +1,5 @@
-const TOURNAMENT_ID = 7912
-const TOURNAMENT_NAME = 'BLAST Open London 2025 Finals'
+const TOURNAMENT_ID = 8064
+const TOURNAMENT_NAME = 'FISSURE Playground 2'
 
 module.exports = {
   TOURNAMENT_ID,

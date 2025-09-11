@@ -158,7 +158,6 @@ async function loadMatches() {
       const team2 = result.team2.name
       const team1id = TEAM_TO_ID[team1]
       const team2id = TEAM_TO_ID[team2]
-      console.log(team1id, team1, team2id, team2)
       const startTime = new Date(result.date)
       const team1score = result.result.team1
       const team2score = result.result.team2
@@ -920,6 +919,6 @@ app.use(function(req, res, next) {
   res.render('404')
 })
 
-app.listen(process.env.PORT || 4000, () => console.log("Server is running..."))
+app.listen(process.env.PORT || 3000, () => console.log("Server is running..."))
 
 // npx tailwindcss -i ./static/styles.css -o ./static/output.css --watch
