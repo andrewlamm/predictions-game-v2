@@ -4,12 +4,14 @@ const passport = require('passport')
 const session = require('cookie-session')
 const bodyParser = require('body-parser')
 const SteamStrategy = require('passport-steam').Strategy
+const path = require('path')
 
 const { HLTV } = require('hltv-next')
 
 const { TOURNAMENT_ID, TOURNAMENT_NAME } = require('./constants')
 const db = require('./db')
 
+app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
 app.use(express.static(`${__dirname}/static`))
 app.use(express.urlencoded({ extended: false }))
@@ -323,7 +325,7 @@ async function newCompletedMatch(match_id) {
       resolve(1)
     }
     catch (err) {
-      console.log(`error updating user scores: ${err}, match: ${match_id}`)
+      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error updating user scores: ${err}, match: ${match_id}`)
     }
   })
 }
@@ -337,7 +339,7 @@ async function checkMatches() {
       const match_id = match.id
       if (match.live) {
         if (all_matches[match_id] === undefined) {
-          console.log(`new untracked live match: ${match_id}`)
+          console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - new untracked live match: ${match_id}`)
 
           const team1id = match.team1.id
           const team2id = match.team2.id
@@ -361,7 +363,7 @@ async function checkMatches() {
           }
         }
         else if (!all_matches[match_id].isLive) {
-          console.log(`now match live: ${match_id}`)
+          console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - now match live: ${match_id}`)
           all_matches[match_id].isLive = true
           all_matches[match_id].startTime = new Date() < all_matches[match_id].startTime ? new Date() : all_matches[match_id].startTime
         }
@@ -370,7 +372,7 @@ async function checkMatches() {
         if (all_matches[match_id] === undefined) {
           if (match.team1.id === undefined || match.team2.id === undefined) return // skip matches with a TBD opponent
 
-          console.log(`new upcoming match: ${match_id}`)
+          console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - new upcoming match: ${match_id}`)
           const team1id = match.team1.id
           const team2id = match.team2.id
           const team1 = ID_TO_TEAM[team1id]
@@ -398,7 +400,7 @@ async function checkMatches() {
           all_matches[match_id].startTime = startTime
 
           if (all_matches[match_id].isLive) {
-            console.log(`match unlive: ${match_id}`)
+            console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - match unlive: ${match_id}`)
             all_matches[match_id].isLive = false
           }
         }
@@ -410,7 +412,7 @@ async function checkMatches() {
   results.forEach(async result => {
     const match_id = result.id
     if (all_matches[match_id] === undefined) {
-      console.log(`new completed match: ${match_id}`)
+      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - new completed match: ${match_id}`)
 
       const team1 = result.team1.name
       const team2 = result.team2.name
@@ -439,7 +441,7 @@ async function checkMatches() {
       }
     }
     else if (!all_matches[match_id].isComplete) {
-      console.log(`match complete: ${match_id}`)
+      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - match complete: ${match_id}`)
 
       const team1score = result.result.team1
       const team2score = result.result.team2
@@ -480,9 +482,9 @@ async function updateRecentlyCompleted() {
 
 async function repeatedFunctions() {
   return new Promise(async function (resolve, reject) {
-    console.log("repeat - ", new Date().toLocaleString("en-US", { timeZone: "America/New_York" }))
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - repeating...`)
     if (repeating) {
-      console.log("skipped")
+      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - skipped`)
 
       resolve(1)
     }
@@ -490,7 +492,7 @@ async function repeatedFunctions() {
       repeating = true
       await checkMatches()
       await updateRecentlyCompleted()
-      console.log("repeat complete - ", new Date().toLocaleString("en-US", { timeZone: "America/New_York" }))
+      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - repeat complete`)
 
       repeating = false
       resolve(1)
@@ -500,16 +502,16 @@ async function repeatedFunctions() {
 
 async function start() {
   try {
-    console.log('loading teams...')
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - loading teams...`)
     await loadTeams()
-    console.log('loading matches...')
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - loading matches...`)
     await loadMatches()
-    console.log('loading databases...')
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - loading databases...`)
     await loadDatabases()
-    console.log('loading leaderboard...')
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - loading leaderboard...`)
     await updateLeaderboard()
 
-    console.log('startup complete')
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - startup complete`)
     startup_complete = true
 
     const repeatTimer = setInterval(repeatedFunctions, 60000)
@@ -612,7 +614,7 @@ async function checkDocumentExists(req, res, next) {
         res.locals.userDoc = newDoc
         req.user.points = 0.0
 
-        console.log(`new user: ${insRes.insertedId}`)
+        console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - new user: ${insRes.insertedId}`)
 
         // update leaderboard with new user
         leaderboard.push({
@@ -705,19 +707,19 @@ async function insertGuessHelper(req, res, next) {
     next()
   }
   else if (req.user === undefined || req.user._json === undefined) {
-    console.log(`insert guess fail, not logged in`)
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - insert guess fail, not logged in`)
     next()
   }
   else if (req.body.match_id === undefined || all_matches[req.body.match_id] === undefined) {
-    console.log(`insert guess fail, invalid match id: ${req.body.match_id}, user: ${req.user._json.steamid}`)
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - insert guess fail, invalid match id: ${req.body.match_id}, user: ${req.user._json.steamid}`)
     next()
   }
   else if (isNaN(req.body.prob) || parseInt(req.body.prob) < 0 || parseInt(req.body.prob) > 100) {
-    console.log(`insert guess fail, invalid probability: ${req.body.prob}, user: ${req.user._json.steamid}`)
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - insert guess fail, invalid probability: ${req.body.prob}, user: ${req.user._json.steamid}`)
     next()
   }
   else if (all_matches[req.body.match_id].isComplete || all_matches[req.body.match_id].isLive) {
-    console.log(`insert guess fail, match is complete or live: ${req.body.match_id}, user: ${req.user._json.steamid}`)
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - insert guess fail, match is complete or live: ${req.body.match_id}, user: ${req.user._json.steamid}`)
     next()
   }
   else {
@@ -744,7 +746,7 @@ async function insertGuessHelper(req, res, next) {
       next()
     }
     catch (err) {
-      console.log(`insert guess fail, error: ${err}, user: ${req.user._json.steamid}`)
+      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - insert guess fail, error: ${err}, user: ${req.user._json.steamid}`)
       next()
     }
   }
