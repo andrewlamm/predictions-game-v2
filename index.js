@@ -18,7 +18,9 @@ const myHLTV = HLTV.createInstance({ loadPage:
 })
 
 const { TOURNAMENT_ID, TOURNAMENT_NAME } = require('./constants')
-const db = require('./db')
+const { userDb, completedMatchesDb } = require('./db')
+
+const COMPLETED_MATCHES_DOC = 'completed_matches'
 
 app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
@@ -218,7 +220,7 @@ async function loadMatches() {
 async function loadDatabases() {
   // function loads all predictions from database
   return new Promise(async function (resolve, reject) {
-    await db.find().forEach(async function (doc) {
+    await userDb.find().forEach(async function (doc) {
       for (const [key, val] of Object.entries(doc)) {
         if (!isNaN(key)) { // if key is a number, then this is a valid match id
           all_matches[key].numPredictions += 1
@@ -226,6 +228,11 @@ async function loadDatabases() {
         }
       }
     })
+
+    const completedMatches = await completedMatchesDb.findOne({ _id: COMPLETED_MATCHES_DOC })
+    if (completedMatches === null) {
+      await completedMatchesDb.insertOne({ _id: COMPLETED_MATCHES_DOC, matches: [] })
+    }
     resolve(1)
   })
 }
@@ -235,7 +242,7 @@ async function updateLeaderboard() {
     const oldLeaderboard = []
     const newLeaderboard = []
 
-    await db.find().forEach(async function (doc) {
+    await userDb.find().forEach(async function (doc) {
       if (!isNaN(doc._id)) {
         let newPrevDay = 0.0
         recently_completed.forEach(match_id => {
@@ -308,7 +315,7 @@ async function newCompletedMatch(match_id) {
   return new Promise(async function (resolve, reject) {
     try {
       const team1win = all_matches[match_id].team1score > all_matches[match_id].team2score
-      await db.find().forEach(async function (doc) {
+      await userDb.find().forEach(async function (doc) {
         if (!isNaN(doc._id)) {
           const query = { _id: doc._id }
 
@@ -340,7 +347,7 @@ async function newCompletedMatch(match_id) {
               }
             }
 
-            const updateRes = await db.updateOne(query, update)
+            const updateRes = await userDb.updateOne(query, update)
           }
         }
       })
@@ -356,6 +363,25 @@ async function newCompletedMatch(match_id) {
 
       resolve(1)
     }
+  })
+}
+
+async function setupCompletedMatchesOnStartup() {
+  return new Promise(async function (resolve, reject) {
+    const completedMatchesDoc = await completedMatchesDb.findOne({ _id: COMPLETED_MATCHES_DOC })
+    const completedMatchesSaved = completedMatchesDoc.matches
+
+    for (const match_id in all_matches) {
+      if (all_matches[match_id].isComplete && !completedMatchesSaved.includes(match_id)) {
+        console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - found uncalculated completed match in startup: ${match_id}`)
+        completedMatchesSaved.push(match_id)
+        await newCompletedMatch(match_id)
+      }
+    }
+
+    await completedMatchesDb.updateOne({ _id: COMPLETED_MATCHES_DOC }, { $set: { matches: completedMatchesSaved } })
+
+    resolve(1)
   })
 }
 
@@ -394,7 +420,7 @@ async function checkMatches() {
               numPredictions: 0,
             }
           }
-          else if (!all_matches[match_id].isLive) {
+          else if (!all_matches[match_id].isLive && !all_matches[match_id].isComplete) {
             console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - now match live: ${match_id}`)
             all_matches[match_id].isLive = true
             all_matches[match_id].startTime = new Date() < all_matches[match_id].startTime ? new Date() : all_matches[match_id].startTime
@@ -547,6 +573,8 @@ async function start() {
     await loadDatabases()
     console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - loading leaderboard...`)
     await updateLeaderboard()
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - updating completed matches if necessary...`)
+    await setupCompletedMatchesOnStartup()
 
     console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - startup complete`)
     startup_complete = true
@@ -631,7 +659,7 @@ async function checkDocumentExists(req, res, next) {
     }
     else {
       const query = { _id: req.user._json.steamid }
-      const result = await db.findOne(query)
+      const result = await userDb.findOne(query)
 
       res.locals.userDoc = result
 
@@ -647,7 +675,7 @@ async function checkDocumentExists(req, res, next) {
           incorrect: 0,
         }
 
-        const insRes = await db.insertOne(newDoc)
+        const insRes = await userDb.insertOne(newDoc)
         res.locals.userDoc = newDoc
         req.user.points = 0.0
 
@@ -685,7 +713,7 @@ async function checkDocumentExists(req, res, next) {
             }
           }
 
-          const updateRes = await db.updateOne(query, update)
+          const updateRes = await userDb.updateOne(query, update)
 
           next()
         }
@@ -762,7 +790,7 @@ async function insertGuessHelper(req, res, next) {
   else {
     try {
       const query = { _id: req.user._json.steamid }
-      const results = await db.findOne(query)
+      const results = await userDb.findOne(query)
 
       if (results[req.body.match_id] !== undefined) {
         // user has guessed on this match before
@@ -778,7 +806,7 @@ async function insertGuessHelper(req, res, next) {
       const update = { $set: {} }
       update.$set[req.body.match_id] = parseInt(req.body.prob)
 
-      const updateRes = await db.updateOne(query, update)
+      const updateRes = await userDb.updateOne(query, update)
 
       next()
     }
@@ -809,7 +837,7 @@ async function getUserInfo(req, res, next) {
   if (!startup_complete) next()
   else {
     const query = { _id: req.params.userID }
-    const results = await db.findOne(query)
+    const results = await userDb.findOne(query)
 
     if (results === null) {
       // user does not exist
