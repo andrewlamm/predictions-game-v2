@@ -352,6 +352,12 @@ async function newCompletedMatch(match_id) {
         }
       })
 
+      const completedMatchesDoc = await completedMatchesDb.findOne({ _id: COMPLETED_MATCHES_DOC })
+      if (!completedMatchesDoc.matches.includes(match_id)) {
+        completedMatchesDoc.matches.push(match_id)
+        await completedMatchesDb.updateOne({ _id: COMPLETED_MATCHES_DOC }, { $set: { matches: completedMatchesDoc.matches } })
+      }
+
       // update leaderboard
       await delay(1000) // slight delay to help mongodb problems
       await updateLeaderboard()
@@ -374,12 +380,9 @@ async function setupCompletedMatchesOnStartup() {
     for (const match_id in all_matches) {
       if (all_matches[match_id].isComplete && !completedMatchesSaved.includes(match_id)) {
         console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - found uncalculated completed match in startup: ${match_id}`)
-        completedMatchesSaved.push(match_id)
         await newCompletedMatch(match_id)
       }
     }
-
-    await completedMatchesDb.updateOne({ _id: COMPLETED_MATCHES_DOC }, { $set: { matches: completedMatchesSaved } })
 
     resolve(1)
   })
