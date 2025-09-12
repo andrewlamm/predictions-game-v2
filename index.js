@@ -5,8 +5,17 @@ const session = require('cookie-session')
 const bodyParser = require('body-parser')
 const SteamStrategy = require('passport-steam').Strategy
 const path = require('path')
+const { Impit } = require('impit')
+
+const impit = new Impit({ browser: "chrome" })
 
 const { HLTV } = require('hltv-next')
+const myHLTV = HLTV.createInstance({ loadPage:
+  async (url) => {
+    const response = await impit.fetch(url);
+    return response.text()
+  }
+})
 
 const { TOURNAMENT_ID, TOURNAMENT_NAME } = require('./constants')
 const db = require('./db')
@@ -106,7 +115,7 @@ function findUserInLeaderboard(user) {
 
 async function loadTeams() {
   return new Promise(async function (resolve, reject) {
-    const event = await HLTV.getEvent({id: TOURNAMENT_ID})
+    const event = await myHLTV.getEvent({id: TOURNAMENT_ID})
     event.teams.forEach((team) => {
       const team_id = team.id
       const team_name = team.name
@@ -121,7 +130,7 @@ async function loadTeams() {
 
 async function loadMatches() {
   return new Promise(async function (resolve, reject) {
-    const matches = await HLTV.getMatches()
+    const matches = await myHLTV.getMatches()
     matches.forEach(match => {
       const eventId = match.event.id
       if (eventId === TOURNAMENT_ID) {
@@ -153,7 +162,7 @@ async function loadMatches() {
       }
     })
 
-    const results = await HLTV.getResults({eventIds: [TOURNAMENT_ID]})
+    const results = await myHLTV.getResults({eventIds: [TOURNAMENT_ID]})
     results.forEach(result => {
       const match_id = result.id
       const team1 = result.team1.name
@@ -332,7 +341,7 @@ async function newCompletedMatch(match_id) {
 
 async function checkMatches() {
   // function that loads all matches to check for new matches (repeats from timer)
-  const matches = await HLTV.getMatches()
+  const matches = await myHLTV.getMatches()
   matches.forEach(match => {
     const eventId = match.event.id
     if (eventId === TOURNAMENT_ID) {
@@ -408,7 +417,7 @@ async function checkMatches() {
     }
   })
 
-  const results = await HLTV.getResults({eventIds: [TOURNAMENT_ID]})
+  const results = await myHLTV.getResults({eventIds: [TOURNAMENT_ID]})
   results.forEach(async result => {
     const match_id = result.id
     if (all_matches[match_id] === undefined) {
