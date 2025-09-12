@@ -132,6 +132,7 @@ async function loadTeams() {
       console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading teams: ${err}, retrying in 10 seconds...`)
       await delay(10000)
       await loadTeams()
+      resolve(1)
     }
   })
 }
@@ -209,6 +210,7 @@ async function loadMatches() {
       console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading matches: ${err}, retrying in 10 seconds...`)
       await delay(10000)
       await loadMatches()
+      resolve(1)
     }
   })
 }
@@ -351,6 +353,8 @@ async function newCompletedMatch(match_id) {
     }
     catch (err) {
       console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error updating user scores: ${err}, match: ${match_id}`)
+
+      resolve(1)
     }
   })
 }
@@ -490,6 +494,7 @@ async function checkMatches() {
     console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading matches (in repeat): ${err}, retrying in 10 seconds...`)
     await delay(10000)
     await checkMatches()
+    resolve(1)
   }
 }
 
