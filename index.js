@@ -519,9 +519,9 @@ async function updateRecentlyCompleted() {
 
 async function repeatedFunctions() {
   return new Promise(async function (resolve, reject) {
-    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - repeating...`)
+    // console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - repeating...`)
     if (repeating) {
-      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - skipped`)
+      // console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - skipped`)
 
       resolve(1)
     }
@@ -529,7 +529,7 @@ async function repeatedFunctions() {
       repeating = true
       await checkMatches()
       await updateRecentlyCompleted()
-      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - repeat complete`)
+      // console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - repeat complete`)
 
       repeating = false
       resolve(1)
