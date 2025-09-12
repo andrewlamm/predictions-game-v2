@@ -118,20 +118,21 @@ async function loadTeams() {
     let event = undefined;
     try {
       event = await myHLTV.getEvent({id: TOURNAMENT_ID})
+
+      event.teams.forEach((team) => {
+        const team_id = team.id
+        const team_name = team.name
+
+        TEAM_TO_ID[team_name] = team_id
+        ID_TO_TEAM[team_id] = team_name
+      })
+
+      resolve(1)
     } catch (err) {
       console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading teams: ${err}, retrying in 10 seconds...`)
       await delay(10000)
       await loadTeams()
     }
-    event.teams.forEach((team) => {
-      const team_id = team.id
-      const team_name = team.name
-
-      TEAM_TO_ID[team_name] = team_id
-      ID_TO_TEAM[team_id] = team_name
-    })
-
-    resolve(1)
   })
 }
 
@@ -140,23 +141,52 @@ async function loadMatches() {
     let matches = undefined;
     try {
       matches = await myHLTV.getMatches()
-    } catch (err) {
-      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading matches: ${err}, retrying in 10 seconds...`)
-      await delay(10000)
-      await loadMatches()
-    }
-    matches.forEach(match => {
-      const eventId = match.event.id
-      if (eventId === TOURNAMENT_ID) {
-        if (match.team1.id === undefined || match.team2.id === undefined) return // skip matches with a TBD opponent
 
-        const match_id = match.id
-        const team1id = match.team1.id
-        const team2id = match.team2.id
-        const team1 = ID_TO_TEAM[team1id]
-        const team2 = ID_TO_TEAM[team2id]
-        const startTime = match.live ? new Date() : new Date(match.date)
-        const isLive = match.live
+      matches.forEach(match => {
+        const eventId = match.event.id
+        if (eventId === TOURNAMENT_ID) {
+          if (match.team1.id === undefined || match.team2.id === undefined) return // skip matches with a TBD opponent
+
+          const match_id = match.id
+          const team1id = match.team1.id
+          const team2id = match.team2.id
+          const team1 = ID_TO_TEAM[team1id]
+          const team2 = ID_TO_TEAM[team2id]
+          const startTime = match.live ? new Date() : new Date(match.date)
+          const isLive = match.live
+
+          all_matches[match_id] = {
+            match_id: match_id,
+            team1: team1,
+            team2: team2,
+            team1id: team1id,
+            team2id: team2id,
+            startTime: startTime,
+            endTime: undefined,
+            isLive: isLive,
+            isComplete: false,
+            team1score: undefined,
+            team2score: undefined,
+            sumPredictions: 0,
+            numPredictions: 0,
+          }
+        }
+      })
+
+      const results = await myHLTV.getResults({eventIds: [TOURNAMENT_ID]})
+      results.forEach(result => {
+        const match_id = result.id
+        const team1 = result.team1.name
+        const team2 = result.team2.name
+        const team1id = TEAM_TO_ID[team1]
+        const team2id = TEAM_TO_ID[team2]
+        const startTime = new Date(result.date)
+        const team1score = result.result.team1
+        const team2score = result.result.team2
+
+        if (result.date + 86400000 > new Date().getTime()) {
+          recently_completed.add(match_id)
+        }
 
         all_matches[match_id] = {
           match_id: match_id,
@@ -165,49 +195,21 @@ async function loadMatches() {
           team1id: team1id,
           team2id: team2id,
           startTime: startTime,
-          endTime: undefined,
-          isLive: isLive,
-          isComplete: false,
-          team1score: undefined,
-          team2score: undefined,
+          endTime: startTime,
+          isLive: false,
+          isComplete: true,
+          team1score: team1score,
+          team2score: team2score,
           sumPredictions: 0,
           numPredictions: 0,
         }
-      }
-    })
-
-    const results = await myHLTV.getResults({eventIds: [TOURNAMENT_ID]})
-    results.forEach(result => {
-      const match_id = result.id
-      const team1 = result.team1.name
-      const team2 = result.team2.name
-      const team1id = TEAM_TO_ID[team1]
-      const team2id = TEAM_TO_ID[team2]
-      const startTime = new Date(result.date)
-      const team1score = result.result.team1
-      const team2score = result.result.team2
-
-      if (result.date + 86400000 > new Date().getTime()) {
-        recently_completed.add(match_id)
-      }
-
-      all_matches[match_id] = {
-        match_id: match_id,
-        team1: team1,
-        team2: team2,
-        team1id: team1id,
-        team2id: team2id,
-        startTime: startTime,
-        endTime: startTime,
-        isLive: false,
-        isComplete: true,
-        team1score: team1score,
-        team2score: team2score,
-        sumPredictions: 0,
-        numPredictions: 0,
-      }
-    })
-    resolve(1)
+      })
+      resolve(1)
+    } catch (err) {
+      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading matches: ${err}, retrying in 10 seconds...`)
+      await delay(10000)
+      await loadMatches()
+    }
   })
 }
 
@@ -358,136 +360,137 @@ async function checkMatches() {
   let matches = undefined;
   try {
     matches = await myHLTV.getMatches()
+
+    matches.forEach(match => {
+      const eventId = match.event.id
+      if (eventId === TOURNAMENT_ID) {
+        const match_id = match.id
+        if (match.live) {
+          if (all_matches[match_id] === undefined) {
+            console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - new untracked live match: ${match_id}`)
+
+            const team1id = match.team1.id
+            const team2id = match.team2.id
+            const team1 = ID_TO_TEAM[team1id]
+            const team2 = ID_TO_TEAM[team2id]
+
+            all_matches[match_id] = {
+              match_id: match_id,
+              team1: team1,
+              team2: team2,
+              team1id: team1id,
+              team2id: team2id,
+              team1score: undefined,
+              team2score: undefined,
+              startTime: new Date(),
+              endTime: undefined,
+              isLive: true,
+              isComplete: false,
+              sumPredictions: 0,
+              numPredictions: 0,
+            }
+          }
+          else if (!all_matches[match_id].isLive) {
+            console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - now match live: ${match_id}`)
+            all_matches[match_id].isLive = true
+            all_matches[match_id].startTime = new Date() < all_matches[match_id].startTime ? new Date() : all_matches[match_id].startTime
+          }
+        }
+        else {
+          if (all_matches[match_id] === undefined) {
+            if (match.team1.id === undefined || match.team2.id === undefined) return // skip matches with a TBD opponent
+
+            console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - new upcoming match: ${match_id}`)
+            const team1id = match.team1.id
+            const team2id = match.team2.id
+            const team1 = ID_TO_TEAM[team1id]
+            const team2 = ID_TO_TEAM[team2id]
+            const startTime = new Date(match.date)
+
+            all_matches[match_id] = {
+              match_id: match_id,
+              team1: team1,
+              team2: team2,
+              team1id: team1id,
+              team2id: team2id,
+              team1score: undefined,
+              team2score: undefined,
+              startTime: startTime,
+              endTime: undefined,
+              isLive: false,
+              isComplete: false,
+              sumPredictions: 0,
+              numPredictions: 0,
+            }
+          }
+          else {
+            const startTime = new Date(match.date)
+            all_matches[match_id].startTime = startTime
+
+            if (all_matches[match_id].isLive) {
+              console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - match unlive: ${match_id}`)
+              all_matches[match_id].isLive = false
+            }
+          }
+        }
+      }
+    })
+
+    const results = await myHLTV.getResults({eventIds: [TOURNAMENT_ID]})
+    results.forEach(async result => {
+      const match_id = result.id
+      if (all_matches[match_id] === undefined) {
+        console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - new completed match: ${match_id}`)
+
+        const team1 = result.team1.name
+        const team2 = result.team2.name
+        const team1id = TEAM_TO_ID[team1]
+        const team2id = TEAM_TO_ID[team2]
+        const team1score = result.result.team1
+        const team2score = result.result.team2
+
+        const resultDate = new Date(result.date)
+        const endTime = new Date() < resultDate ? new Date() : resultDate
+
+        all_matches[match_id] = {
+          match_id: match_id,
+          team1: team1,
+          team2: team2,
+          team1id: team1id,
+          team2id: team2id,
+          team1score: team1score,
+          team2score: team2score,
+          startTime: endTime,
+          endTime: endTime,
+          isLive: false,
+          isComplete: true,
+          sumPredictions: 0,
+          numPredictions: 0,
+        }
+      }
+      else if (!all_matches[match_id].isComplete) {
+        console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - match complete: ${match_id}`)
+
+        const team1score = result.result.team1
+        const team2score = result.result.team2
+
+        const resultDate = new Date(result.date)
+
+        all_matches[match_id].isLive = false
+        all_matches[match_id].isComplete = true
+        all_matches[match_id].endTime = new Date() < resultDate ? new Date() : resultDate
+        all_matches[match_id].team1score = team1score
+        all_matches[match_id].team2score = team2score
+
+        recently_completed.add(match_id)
+        await newCompletedMatch(match_id)
+      }
+    })
   } catch (err) {
     console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading matches (in repeat): ${err}, retrying in 10 seconds...`)
     await delay(10000)
     await checkMatches()
   }
-  matches.forEach(match => {
-    const eventId = match.event.id
-    if (eventId === TOURNAMENT_ID) {
-      const match_id = match.id
-      if (match.live) {
-        if (all_matches[match_id] === undefined) {
-          console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - new untracked live match: ${match_id}`)
-
-          const team1id = match.team1.id
-          const team2id = match.team2.id
-          const team1 = ID_TO_TEAM[team1id]
-          const team2 = ID_TO_TEAM[team2id]
-
-          all_matches[match_id] = {
-            match_id: match_id,
-            team1: team1,
-            team2: team2,
-            team1id: team1id,
-            team2id: team2id,
-            team1score: undefined,
-            team2score: undefined,
-            startTime: new Date(),
-            endTime: undefined,
-            isLive: true,
-            isComplete: false,
-            sumPredictions: 0,
-            numPredictions: 0,
-          }
-        }
-        else if (!all_matches[match_id].isLive) {
-          console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - now match live: ${match_id}`)
-          all_matches[match_id].isLive = true
-          all_matches[match_id].startTime = new Date() < all_matches[match_id].startTime ? new Date() : all_matches[match_id].startTime
-        }
-      }
-      else {
-        if (all_matches[match_id] === undefined) {
-          if (match.team1.id === undefined || match.team2.id === undefined) return // skip matches with a TBD opponent
-
-          console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - new upcoming match: ${match_id}`)
-          const team1id = match.team1.id
-          const team2id = match.team2.id
-          const team1 = ID_TO_TEAM[team1id]
-          const team2 = ID_TO_TEAM[team2id]
-          const startTime = new Date(match.date)
-
-          all_matches[match_id] = {
-            match_id: match_id,
-            team1: team1,
-            team2: team2,
-            team1id: team1id,
-            team2id: team2id,
-            team1score: undefined,
-            team2score: undefined,
-            startTime: startTime,
-            endTime: undefined,
-            isLive: false,
-            isComplete: false,
-            sumPredictions: 0,
-            numPredictions: 0,
-          }
-        }
-        else {
-          const startTime = new Date(match.date)
-          all_matches[match_id].startTime = startTime
-
-          if (all_matches[match_id].isLive) {
-            console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - match unlive: ${match_id}`)
-            all_matches[match_id].isLive = false
-          }
-        }
-      }
-    }
-  })
-
-  const results = await myHLTV.getResults({eventIds: [TOURNAMENT_ID]})
-  results.forEach(async result => {
-    const match_id = result.id
-    if (all_matches[match_id] === undefined) {
-      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - new completed match: ${match_id}`)
-
-      const team1 = result.team1.name
-      const team2 = result.team2.name
-      const team1id = TEAM_TO_ID[team1]
-      const team2id = TEAM_TO_ID[team2]
-      const team1score = result.result.team1
-      const team2score = result.result.team2
-
-      const resultDate = new Date(result.date)
-      const endTime = new Date() < resultDate ? new Date() : resultDate
-
-      all_matches[match_id] = {
-        match_id: match_id,
-        team1: team1,
-        team2: team2,
-        team1id: team1id,
-        team2id: team2id,
-        team1score: team1score,
-        team2score: team2score,
-        startTime: endTime,
-        endTime: endTime,
-        isLive: false,
-        isComplete: true,
-        sumPredictions: 0,
-        numPredictions: 0,
-      }
-    }
-    else if (!all_matches[match_id].isComplete) {
-      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - match complete: ${match_id}`)
-
-      const team1score = result.result.team1
-      const team2score = result.result.team2
-
-      const resultDate = new Date(result.date)
-
-      all_matches[match_id].isLive = false
-      all_matches[match_id].isComplete = true
-      all_matches[match_id].endTime = new Date() < resultDate ? new Date() : resultDate
-      all_matches[match_id].team1score = team1score
-      all_matches[match_id].team2score = team2score
-
-      recently_completed.add(match_id)
-      await newCompletedMatch(match_id)
-    }
-  })
 }
 
 async function updateRecentlyCompleted() {
