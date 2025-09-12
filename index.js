@@ -494,7 +494,6 @@ async function checkMatches() {
     console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading matches (in repeat): ${err}, retrying in 10 seconds...`)
     await delay(10000)
     await checkMatches()
-    resolve(1)
   }
 }
 
