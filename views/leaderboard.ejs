@@ -33,6 +33,7 @@
 
     function changeTableOrder(order) {
       if (order === 'place') {
+        // If we want to reverse the placement order, preserve the current ordering method and just reverse
         orderCount[currOrder] += 1
       }
       else {
@@ -42,27 +43,27 @@
       }
       order = currOrder
 
+
+      leaderboard.sort((a, b) => {
+        if (order === 'points') {
+          return b.score - a.score || b.correct - a.correct || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || a.username - b.username
+        }
+        else if (order === 'correct') {
+          return b.correct - a.correct || b.score - a.score || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || a.username - b.username
+        }
+        else if (order === 'change') {
+          return b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || b.score - a.score || b.correct - a.correct || a.username - b.username
+        }
+        else if (order === 'name') {
+          return a.username - b.username || b.score - a.score || b.correct - a.correct || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay
+        }
+        else {
+          return 0
+        }
+      })
+
       if (orderCount[order] % 2 === 0) {
         leaderboard.reverse()
-      }
-      else {
-        leaderboard.sort((a, b) => {
-          if (order === 'points') {
-            return b.score - a.score || b.correct - a.correct || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || a.username - b.username
-          }
-          else if (order === 'correct') {
-            return b.correct - a.correct || b.score - a.score || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || a.username - b.username
-          }
-          else if (order === 'change') {
-            return b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay || b.score - a.score || b.correct - a.correct || a.username - b.username
-          }
-          else if (order === 'name') {
-            return a.username - b.username || b.score - a.score || b.correct - a.correct || b.spotsChanged - a.spotsChanged || b.prevDay - a.prevDay
-          }
-          else {
-            return 0
-          }
-        })
       }
 
       leaderboardBody.innerHTML = ''
@@ -92,7 +93,7 @@
         const changeDiv = document.createElement('div')
         changeDiv.classList.add('flex', 'flex-row', 'items-center', 'justify-center')
 
-        if (i > 0 && leaderboard[i].points === leaderboard[i - 1].points && leaderboard[i].correct === leaderboard[i - 1].correct) {
+        if (i > 0 && leaderboard[i].score === leaderboard[i - 1].score && leaderboard[i].correct === leaderboard[i - 1].correct) {
           rank.innerHTML = currPlace
         }
         else {
