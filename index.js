@@ -115,7 +115,14 @@ function findUserInLeaderboard(user) {
 
 async function loadTeams() {
   return new Promise(async function (resolve, reject) {
-    const event = await myHLTV.getEvent({id: TOURNAMENT_ID})
+    let event = undefined;
+    try {
+      event = await myHLTV.getEvent({id: TOURNAMENT_ID})
+    } catch (err) {
+      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading teams: ${err}, retrying in 10 seconds...`)
+      await delay(10000)
+      await loadTeams()
+    }
     event.teams.forEach((team) => {
       const team_id = team.id
       const team_name = team.name
@@ -130,7 +137,14 @@ async function loadTeams() {
 
 async function loadMatches() {
   return new Promise(async function (resolve, reject) {
-    const matches = await myHLTV.getMatches()
+    let matches = undefined;
+    try {
+      matches = await myHLTV.getMatches()
+    } catch (err) {
+      console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading matches: ${err}, retrying in 10 seconds...`)
+      await delay(10000)
+      await loadMatches()
+    }
     matches.forEach(match => {
       const eventId = match.event.id
       if (eventId === TOURNAMENT_ID) {
@@ -341,7 +355,14 @@ async function newCompletedMatch(match_id) {
 
 async function checkMatches() {
   // function that loads all matches to check for new matches (repeats from timer)
-  const matches = await myHLTV.getMatches()
+  let matches = undefined;
+  try {
+    matches = await myHLTV.getMatches()
+  } catch (err) {
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading matches (in repeat): ${err}, retrying in 10 seconds...`)
+    await delay(10000)
+    await checkMatches()
+  }
   matches.forEach(match => {
     const eventId = match.event.id
     if (eventId === TOURNAMENT_ID) {
