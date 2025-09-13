@@ -353,8 +353,8 @@ async function newCompletedMatch(match_id) {
       })
 
       const completedMatchesDoc = await completedMatchesDb.findOne({ _id: COMPLETED_MATCHES_DOC })
-      if (!completedMatchesDoc.matches.includes(match_id)) {
-        completedMatchesDoc.matches.push(match_id)
+      if (!completedMatchesDoc.matches.includes(match_id.toString())) {
+        completedMatchesDoc.matches.push(match_id.toString())
         await completedMatchesDb.updateOne({ _id: COMPLETED_MATCHES_DOC }, { $set: { matches: completedMatchesDoc.matches } })
       }
 
@@ -520,7 +520,7 @@ async function checkMatches() {
       }
     })
   } catch (err) {
-    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading matches (in repeat): ${err}, retrying in 60 seconds...`)
+    console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - error loading matches (in repeat): ${err}, retrying in 120 seconds...`)
   }
 }
 
@@ -580,7 +580,7 @@ async function start() {
     console.log(`${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} - startup complete`)
     startup_complete = true
 
-    const repeatTimer = setInterval(repeatedFunctions, 60000)
+    const repeatTimer = setInterval(repeatedFunctions, 120000)
   }
   catch (err) {
     console.log('error on startup')
